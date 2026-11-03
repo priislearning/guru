@@ -84,8 +84,14 @@ export const QuestionModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 flex flex-col gap-5 overflow-hidden">
+    <div
+      onClick={handleDismiss}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/25 backdrop-blur-[2px] animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl p-6 flex flex-col gap-5 overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">

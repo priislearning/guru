@@ -28,6 +28,8 @@ class TutorOrchestrator {
     // Immediately stop any prior speech and clear sync timers
     this.clearTimers();
     audioPlayer.stop();
+    store.setQuestionOpen(false);
+    store.setQuestionResult(null);
 
     // 1. Add user message to conversation history
     store.addMessage({
@@ -110,6 +112,15 @@ class TutorOrchestrator {
       store.clearBoard();
     }
 
+    // Dynamic whiteboard parallel pacing: distribute board actions across whole speech duration
+    const numActions = actions.length;
+    const calibrateSyncTime = (index: number, totalDuration: number) => {
+      if (numActions <= 1) return Math.min(1.2, totalDuration * 0.3);
+      // Start drawing ~12% in, finish drawing last element ~85% into speech
+      const fraction = 0.12 + (index / (numActions - 0.2)) * 0.74;
+      return Math.max(0.6, totalDuration * fraction);
+    };
+
     const executeAction = (action: BoardAction, index: number) => {
       if (!executedActions.has(index)) {
         executedActions.add(index);
@@ -117,13 +128,21 @@ class TutorOrchestrator {
           store.clearBoard();
         } else {
           store.addBoardAction(action);
+          // Guru actively gestures to the whiteboard when drawing
+          store.setGesture("point_board");
+          const gestureTimer = setTimeout(() => {
+            if (useTutorStore.getState().avatarStatus === "speaking") {
+              useTutorStore.getState().setGesture("nod");
+            }
+          }, 1800);
+          this.activeTimers.push(gestureTimer);
         }
       }
     };
 
-    // 5. Completion handler
+    // 5. Completion handler - called ONLY when the whole teaching speech is 100% finished
     const onSpeechComplete = () => {
-      // Ensure all board actions are executed
+      // Ensure all remaining board actions are executed
       actions.forEach((act, idx) => executeAction(act, idx));
 
       // Append summary notes if any
@@ -141,17 +160,21 @@ class TutorOrchestrator {
         store.setActiveDemo(turn.demo);
       }
 
-      // Return avatar to idle
+      // Mark avatar idle and gesture complete
       store.setAvatarStatus("idle");
+      store.setGesture("none");
 
-      // Activate question ONLY after speech finishes + an intentional 2-second pause,
-      // giving the student time to look at the whiteboard and absorb
+      // Multiple choice questions appear ONLY after the whole teaching is done + 2.5s pause
+      // so the learner has time to absorb the completed whiteboard diagram!
       if (turn.question) {
         store.setCurrentQuestion(turn.question);
         store.setQuestionResult(null);
         const questionTimer = setTimeout(() => {
-          store.setQuestionOpen(true);
-        }, 2200);
+          // Verify avatar is truly idle and not in a new speech turn
+          if (useTutorStore.getState().avatarStatus === "idle") {
+            store.setQuestionOpen(true);
+          }
+        }, 2500);
         this.activeTimers.push(questionTimer);
       }
     };
@@ -165,9 +188,10 @@ class TutorOrchestrator {
             onSpeechComplete();
           },
           (currentTimeSec: number) => {
-            // Check for actions that should be synced at currentTimeSec
+            // Draw each action at its calibrated parallel timestamp
             actions.forEach((act, idx) => {
-              if (currentTimeSec >= (act.sync_at || 0)) {
+              const targetTime = calibrateSyncTime(idx, audioDurationSec);
+              if (currentTimeSec >= targetTime) {
                 executeAction(act, idx);
               }
             });
@@ -186,7 +210,7 @@ class TutorOrchestrator {
         console.warn("Audio playback exception, falling back to simulated speech timer:", audioErr);
         const durationSec = Math.max(5, turn.speech.length * 0.12);
         actions.forEach((act, idx) => {
-          const delayMs = Math.min(durationSec * 900, (act.sync_at || 0) * 1000);
+          const delayMs = calibrateSyncTime(idx, durationSec) * 1000;
           const timer = setTimeout(() => executeAction(act, idx), delayMs);
           this.activeTimers.push(timer);
         });
@@ -195,10 +219,10 @@ class TutorOrchestrator {
       }
     } else {
       // Simulate playback timing: ~10 chars/sec
-      const durationSec = Math.max(4, turn.speech.length * 0.1);
+      const durationSec = Math.max(5, turn.speech.length * 0.11);
 
       actions.forEach((act, idx) => {
-        const delayMs = Math.min(durationSec * 900, (act.sync_at || 0) * 1000);
+        const delayMs = calibrateSyncTime(idx, durationSec) * 1000;
         const timer = setTimeout(() => executeAction(act, idx), delayMs);
         this.activeTimers.push(timer);
       });

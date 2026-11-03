@@ -42,11 +42,30 @@ app.post("/api/config/key", (req: Request, res: Response) => {
   }
 });
 
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Mount modular routes
 app.use("/api/test", testRouter);
 app.use("/api/voice", voiceRouter);
 app.use("/api/tutor", tutorRouter);
 app.use("/api/translate", translateRouter);
+
+// Serve frontend static build if present
+const clientDist = path.resolve(__dirname, "../../client/dist");
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (req: Request, res: Response, next) => {
+    if (req.path.startsWith("/api")) return next();
+    res.sendFile(path.join(clientDist, "index.html"), (err) => {
+      if (err) next();
+    });
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`===============================================`);

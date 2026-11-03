@@ -189,7 +189,15 @@ export const useTutorStore = create<TutorStore>((set, get) => ({
 
   setActiveDemo: (activeDemo) => set({ activeDemo }),
   setCurrentQuestion: (currentQuestion) => set({ currentQuestion }),
-  setQuestionOpen: (isQuestionOpen) => set({ isQuestionOpen }),
+  setQuestionOpen: (isQuestionOpen) =>
+    set((state) => {
+      // NEVER allow question modal to open while avatar is actively teaching (speaking or thinking)
+      if (isQuestionOpen && (state.avatarStatus === "speaking" || state.avatarStatus === "thinking")) {
+        console.warn("Blocked setQuestionOpen(true): Guru is still actively teaching!");
+        return state;
+      }
+      return { isQuestionOpen };
+    }),
   setQuestionResult: (questionResult) => set({ questionResult }),
 
   updateMastery: (concept, delta) =>
