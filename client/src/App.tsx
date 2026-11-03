@@ -27,17 +27,22 @@ export function App() {
     return () => clearInterval(timer);
   }, [incrementTimeSpent]);
 
-  // First run: trigger onboarding or kick off Photosynthesis lesson
+  // First run: trigger onboarding or provide initial greeting
   useEffect(() => {
     if (messages.length === 0 && !isOnboardingOpen) {
-      // Check if user has seen onboarding before
       const seen = localStorage.getItem("guru_onboarding_completed");
       if (!seen) {
         setIsOnboardingOpen(true);
         localStorage.setItem("guru_onboarding_completed", "true");
       } else {
-        // Automatically start the first lesson turn
-        tutorOrchestrator.handleUserInput(`Hello Guru, let's begin our lesson on ${topic}!`);
+        // Welcome the student without prematurely firing audio before user interaction
+        useTutorStore.getState().addMessage({
+          id: "welcome-1",
+          sender: "tutor",
+          text: `Namaste! I am GURU, your AI tutor. Ask me anything about ${topic} or pick another topic above to start our live lesson!`,
+          timestamp: new Date(),
+          emotion: "happy",
+        });
       }
     }
   }, [messages.length, isOnboardingOpen, setIsOnboardingOpen, topic]);

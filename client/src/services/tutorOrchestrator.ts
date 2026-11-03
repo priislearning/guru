@@ -182,10 +182,21 @@ class TutorOrchestrator {
     // 6. Play audio if available with authoritative Web Audio callbacks
     if (audioBase64) {
       try {
+        let isCompleted = false;
+        let safetyTimer: any = null;
+
+        const completeSpeech = () => {
+          if (!isCompleted) {
+            isCompleted = true;
+            if (safetyTimer) clearTimeout(safetyTimer);
+            onSpeechComplete();
+          }
+        };
+
         const audioDurationSec = await audioPlayer.playAudio(
           audioBase64,
           () => {
-            onSpeechComplete();
+            completeSpeech();
           },
           (currentTimeSec: number) => {
             // Draw each action at its calibrated parallel timestamp
@@ -198,17 +209,17 @@ class TutorOrchestrator {
           }
         );
 
-        // Generous safety timer only in case Web Audio onended is dropped by browser: duration + 6s
-        const safeTimeoutMs = Math.max(8000, (audioDurationSec + 6) * 1000);
-        const safetyTimer = setTimeout(() => {
+        // Generous safety timer only if Web Audio drops onended: audio duration + 10s
+        const safeTimeoutMs = Math.max(16000, (audioDurationSec + 10) * 1000);
+        safetyTimer = setTimeout(() => {
           if (useTutorStore.getState().avatarStatus === "speaking") {
-            onSpeechComplete();
+            completeSpeech();
           }
         }, safeTimeoutMs);
         this.activeTimers.push(safetyTimer);
       } catch (audioErr) {
         console.warn("Audio playback exception, falling back to simulated speech timer:", audioErr);
-        const durationSec = Math.max(5, turn.speech.length * 0.12);
+        const durationSec = Math.max(6, turn.speech.length * 0.12);
         actions.forEach((act, idx) => {
           const delayMs = calibrateSyncTime(idx, durationSec) * 1000;
           const timer = setTimeout(() => executeAction(act, idx), delayMs);
@@ -219,7 +230,7 @@ class TutorOrchestrator {
       }
     } else {
       // Simulate playback timing: ~10 chars/sec
-      const durationSec = Math.max(5, turn.speech.length * 0.11);
+      const durationSec = Math.max(6, turn.speech.length * 0.11);
 
       actions.forEach((act, idx) => {
         const delayMs = calibrateSyncTime(idx, durationSec) * 1000;

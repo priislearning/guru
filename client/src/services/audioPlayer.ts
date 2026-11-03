@@ -88,7 +88,6 @@ export class AudioPlayer {
       };
 
       source.start(0);
-      return audioBuffer.duration;
 
       // Animation tick to sample amplitude and update time
       const tick = () => {
@@ -121,6 +120,7 @@ export class AudioPlayer {
       };
 
       this.animFrameId = requestAnimationFrame(tick);
+      return audioBuffer.duration;
     } catch (err: any) {
       console.warn("Web Audio decode/play error:", err);
       // Fallback: simulate lip movement for estimated duration if decode failed
