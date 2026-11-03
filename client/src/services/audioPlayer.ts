@@ -13,7 +13,17 @@ export class AudioPlayer {
   private currentAmplitude: number = 0;
 
   constructor() {
-    // AudioContext will be initialized or resumed on first user gesture
+    // Unblock browser Web Audio autoplay policy on first user interaction
+    if (typeof window !== "undefined") {
+      const unlock = () => {
+        if (this.ctx && this.ctx.state === "suspended") {
+          this.ctx.resume().catch(() => {});
+        }
+      };
+      window.addEventListener("click", unlock, { passive: true });
+      window.addEventListener("keydown", unlock, { passive: true });
+      window.addEventListener("touchstart", unlock, { passive: true });
+    }
   }
 
   private initContext(): AudioContext {
@@ -22,7 +32,7 @@ export class AudioPlayer {
       this.ctx = new AudioCtx();
     }
     if (this.ctx.state === "suspended") {
-      this.ctx.resume();
+      this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
